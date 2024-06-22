@@ -113,11 +113,13 @@ def generate_content():
             image_prompt = f"An illustration representing the topic: {topic}"
             question_image_url = generate_image(image_prompt)
             if not question_image_url:
+                logger.error("Failed to generate question image")
                 return jsonify({"error": "Failed to generate question image"}), 500
 
             description = f"This is an illustration representing the topic '{topic}'."
             mcq_with_images = generate_mcq_with_image_options(description)
             if "error" in mcq_with_images:
+                logger.error(f"Failed to generate MCQ: {mcq_with_images['error']}")
                 return jsonify(mcq_with_images), 500
 
             mcq_with_images["question_image_url"] = question_image_url
