@@ -48,22 +48,8 @@ def generate_image_options(prompts: list):
 def generate_mcq_with_image_options(description: str):
     description_prompt = [
         {"role": "system", "content": "You are an expert in generating  content."},
-        {"role": "user", "content": f"Please generate a multiple-choice question (MCQ) based on the following description. Use the format provided below:
+        {"role": "user", "content": f"Generate a multiple-choice question with four options and indicate the correct answer based on the following description: {description}"}
 
-Description: {description}
-
-MCQ Format:
-
-Question: [Craft a question based on the given description]
-
-Options:
-
-[Option 1]
-[Option 2]
-[Option 3]
-[Option 4]
-Correct Answer: [Specify the correct option]"}
-    ]
     
     try:
         response = openai.ChatCompletion.create(
