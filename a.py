@@ -54,7 +54,7 @@ def generate_mcq_with_image_options(description: str):
             max_tokens=1000,
             temperature=0.5
         )
-        content = response.choices[0].message['content']
+        content = response['choices'][0]['message']['content']
     except openai.error.OpenAIError as e:
         print(f"OpenAI API error: {e}")
         return {"error": "Failed to communicate with OpenAI API", "response_content": str(e)}
