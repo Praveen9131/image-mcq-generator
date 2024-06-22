@@ -48,7 +48,7 @@ def generate_image_options(prompts: list):
 def generate_mcq_with_image_options(description: str):
     description_prompt = [
         {"role": "system", "content": "You are an expert in generating educational content."},
-        {"role": "user", "content": f"Generate a multiple-choice question with four options based on the following description. Use the following format:\n\n**Question:** [Question based on the description]\n\n**Options:**\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\n**Correct Answer:** [Correct Option]\n\nDescription: {description}"}
+        {"role": "user", "content": f"Generate a multiple-choice question with four options based on the {description}. Use the following format:\n\nQuestion: [Question based on the description]\n\nOptions:\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\nCorrect Answer:*[Correct Option]\n\nDescription: {description}"}
     ]
     
     try:
