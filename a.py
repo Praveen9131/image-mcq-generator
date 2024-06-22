@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 import openai
 from dotenv import load_dotenv
 import requests
-
+ 
 load_dotenv()
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
