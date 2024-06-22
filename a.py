@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, jsonify
 import openai
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
 
@@ -12,19 +13,31 @@ app = Flask(__name__)
 
 # Function to generate an image using the new DALL-E API
 def generate_image(prompt: str):
-    response = openai.Image.create(
-        prompt=prompt,
-        n=1,
-        size="1024x1024"
-    )
-    return response['data'][0]['url']
+    try:
+        response = openai.Image.create(
+            prompt=prompt,
+            n=1,
+            size="1024x1024",
+            timeout=30  # Adding a timeout for the request
+        )
+        return response['data'][0]['url']
+    except openai.error.OpenAIError as e:
+        print(f"OpenAI API error: {e}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return None
 
 # Function to generate multiple image options based on a prompt
 def generate_image_options(prompts: list):
     options = []
     for prompt in prompts:
         image_url = generate_image(prompt)
-        options.append(image_url)
+        if image_url:
+            options.append(image_url)
+        else:
+            print(f"Failed to generate image for prompt: {prompt}")
+            options.append("Image generation failed")
     return options
 
 # Function to generate a question with image options based on a description
@@ -34,15 +47,18 @@ def generate_mcq_with_image_options(description: str):
         {"role": "user", "content": f"Generate a multiple-choice question with four options based on the following description. Use the following format:\n\n**Question:** [Question based on the description]\n\n**Options:**\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\n**Correct Answer:** [Correct Option]\n\nDescription: {description}"}
     ]
     
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=description_prompt,
-        max_tokens=1000,
-        temperature=0.5
-    )
-    
-    content = response.choices[0].message['content']
-    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=description_prompt,
+            max_tokens=1000,
+            temperature=0.5
+        )
+        content = response.choices[0].message['content']
+    except openai.error.OpenAIError as e:
+        print(f"OpenAI API error: {e}")
+        return {"error": "Failed to communicate with OpenAI API", "response_content": str(e)}
+
     try:
         # Extracting the question, options, and correct answer from the response
         question_section = content.split("**Question:**")[1].split("**Options:**")[0].strip()
@@ -94,6 +110,15 @@ def generate_content():
         # Generate image
         image_prompt = f"An illustration representing the topic: {topic}"
         question_image_url = generate_image(image_prompt)
+        
+        if not question_image_url:
+            print("Failed to generate the main image.")
+            images_and_questions.append({
+                "error": "Failed to generate the main image.",
+                "question_image_url": None,
+                "response_content": "Image generation failed."
+            })
+            continue
         
         # Use a simple description of the generated image
         description = f"This is an illustration representing the topic '{topic}'."
