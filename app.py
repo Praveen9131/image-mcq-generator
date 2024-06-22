@@ -73,6 +73,9 @@ def generate_mcq_with_image_options(description: str):
 
         option_images = generate_image_options(option_prompts)
         
+        if len(option_images) != 4:
+            raise ValueError("Failed to generate four image options")
+
         if correct_answer not in option_prompts:
             raise ValueError(f"Correct answer '{correct_answer}' not found in options: {option_prompts}")
 
@@ -106,7 +109,17 @@ def generate_mcq_with_image_options(description: str):
 def generate_content():
     try:
         topic = request.args.get('topic')
-        num_questions = int(request.args.get('num_questions'))
+        num_questions = request.args.get('num_questions')
+
+        if not topic:
+            return jsonify({"error": "Topic parameter is required"}), 400
+        if not num_questions:
+            return jsonify({"error": "num_questions parameter is required"}), 400
+        
+        try:
+            num_questions = int(num_questions)
+        except ValueError:
+            return jsonify({"error": "num_questions must be an integer"}), 400
 
         images_and_questions = []
         for _ in range(num_questions):
