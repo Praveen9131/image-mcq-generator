@@ -48,7 +48,7 @@ def generate_image_options(prompts: list):
 def generate_mcq_with_image_options(description: str):
     description_prompt = [
         {"role": "system", "content": "You are an expert in generating educational content."},
-        {"role": "user", "content": f"Generate a multiple-choice question with four options based on the {description}. Use the following format:\n\nQuestion: [Question based on the description]\n\nOptions:\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\nCorrect Answer:*[Correct Option]\n\nDescription: {description}"}
+        {"role": "user", "content": f"Generate a multiple-choice question with four options based on the following description. Use the following format:\n\n**Question:** [Question based on the description]\n\n**Options:**\n1. [Option 1]\n2. [Option 2]\n3. [Option 3]\n4. [Option 4]\n\n**Correct Answer:** [Correct Option]\n\nDescription: {description}"}
     ]
     
     try:
@@ -106,17 +106,7 @@ def generate_mcq_with_image_options(description: str):
 def generate_content():
     try:
         topic = request.args.get('topic')
-        num_questions = request.args.get('num_questions')
-
-        if not topic:
-            return jsonify({"error": "Topic parameter is required"}), 400
-        if not num_questions:
-            return jsonify({"error": "num_questions parameter is required"}), 400
-        
-        try:
-            num_questions = int(num_questions)
-        except ValueError:
-            return jsonify({"error": "num_questions must be an integer"}), 400
+        num_questions = int(request.args.get('num_questions'))
 
         images_and_questions = []
         for _ in range(num_questions):
