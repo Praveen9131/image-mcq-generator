@@ -106,6 +106,4 @@ def generate_content():
         images_and_questions.append(mcq_with_images)
 
     return jsonify(images_and_questions)
-
-if __name__ == "__main__":
-    app.run(debug=True)
+)
