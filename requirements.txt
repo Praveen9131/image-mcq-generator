@@ -1,5 +1,5 @@
-langchain
-openai==0.28
-Flask
-gunicorn
-python-dotenv
+
+Flask==2.3.2
+openai==0.27.0
+python-dotenv==1.0.0
+waitress==2.1.2
