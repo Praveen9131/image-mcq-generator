@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import openai
 from pymongo import MongoClient
 from bson import ObjectId
-import time  # Import time module
+import time
 
 load_dotenv()
 
@@ -21,10 +21,9 @@ app = Flask(__name__)
 # MongoDB setup
 MONGODB_URI = os.getenv('MONGODB_URI')
 client = MongoClient(MONGODB_URI)
-db = client['images']  # Connect to the 'images' database
-collection = db['image_data']  # Use the 'image_data' collection
+db = client['images']
+collection = db['image_data']
 
-# Function to generate an image using DALL-E 3
 def generate_image(prompt: str):
     retry_attempts = 3
     for attempt in range(retry_attempts):
@@ -38,26 +37,34 @@ def generate_image(prompt: str):
             return response['data'][0]['url']
         except openai.error.OpenAIError as e:
             if attempt < retry_attempts - 1:
-                time.sleep(2)  # Wait before retrying
+                time.sleep(2)
                 continue
             else:
                 raise e
 
-# Async function to download and resize an image
 async def download_resize_image(url: str, size: tuple):
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.read()
-                image = Image.open(BytesIO(data))
-                image = image.resize(size, Image.Resampling.LANCZOS)
-                buffered = BytesIO()
-                image.save(buffered, format="JPEG", quality=10)
-                img_str = base64.b64encode(buffered.getvalue()).decode()
-                return img_str
+    retry_attempts = 3
+    for attempt in range(retry_attempts):
+        try:
+            timeout = aiohttp.ClientTimeout(total=120)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.read()
+                        image = Image.open(BytesIO(data))
+                        image = image.resize(size, Image.Resampling.LANCZOS)
+                        buffered = BytesIO()
+                        image.save(buffered, format="JPEG", quality=10)
+                        img_str = base64.b64encode(buffered.getvalue()).decode()
+                        return img_str
+        except aiohttp.ClientError as e:
+            if attempt < retry_attempts - 1:
+                time.sleep(2)
+                continue
+            else:
+                raise e
     return None
 
-# Function to store image data in MongoDB
 def store_image_data(original_image_data: str, resized_image_data: str):
     document = {
         "original_image": original_image_data,
@@ -66,13 +73,12 @@ def store_image_data(original_image_data: str, resized_image_data: str):
     result = collection.insert_one(document)
     return result.inserted_id
 
-# Function to generate a detailed description of the image using GPT-4 Vision
 def generate_image_description(image_url: str):
     retry_attempts = 3
     for attempt in range(retry_attempts):
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-4o",
+                model="gpt-4",
                 messages=[
                     {
                         "role": "user",
@@ -87,12 +93,11 @@ def generate_image_description(image_url: str):
             return response.choices[0].message['content']
         except openai.error.OpenAIError as e:
             if attempt < retry_attempts - 1:
-                time.sleep(2)  # Wait before retrying
+                time.sleep(2)
                 continue
             else:
                 raise e
 
-# Function to generate a question from a detailed description using GPT-4
 def generate_mcq_from_description(description: str, tone: str, subject: str):
     retry_attempts = 3
     for attempt in range(retry_attempts):
@@ -111,38 +116,32 @@ def generate_mcq_from_description(description: str, tone: str, subject: str):
             return response.choices[0].message['content']
         except openai.error.OpenAIError as e:
             if attempt < retry_attempts - 1:
-                time.sleep(2)  # Wait before retrying
+                time.sleep(2)
                 continue
             else:
                 raise e
 
-# Consolidated function to generate image and MCQ
 async def generate_image_mcq(number: int, subject: str, tone: str):
     images_and_questions = []
     for i in range(number):
-        # Generate image
         image_prompt = f"An illustration representing the topic: {subject}"
         image_url = generate_image(image_prompt)
         
-        # Resize and encode image
         original_image_data = await download_resize_image(image_url, (1024, 1024))
         resized_image_data = await download_resize_image(image_url, (750, 319))
         
         if original_image_data and resized_image_data:
-            # Store image data in MongoDB
             image_id = store_image_data(original_image_data, resized_image_data)
             
-            # Generate a detailed description of the image
             description = generate_image_description(image_url)
             
-            # Generate MCQ based on the detailed description
             mcq_text = generate_mcq_from_description(description, tone, subject)
             
             images_and_questions.append({
                 'mcq': mcq_text,
                 'question_image_id': str(image_id),
-                'question_image_url': image_url,  # Original URL
-                'resized_image_url': f'/image/{image_id}'  # URL to access the resized image
+                'question_image_url': image_url,
+                'resized_image_url': f'/image/{image_id}'
             })
 
     return images_and_questions
