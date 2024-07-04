@@ -148,7 +148,7 @@ async def generate_image_mcq(number: int, subject: str, tone: str):
     return images_and_questions
 
 @app.route('/generate_content', methods=['GET'])
-async def generate_content():
+def generate_content():
     number = request.args.get('number')
     subject = request.args.get('subject')
     tone = request.args.get('tone')
@@ -162,7 +162,7 @@ async def generate_content():
         return jsonify({"error": "number must be an integer"}), 400
 
     try:
-        content = await generate_image_mcq(number, subject, tone)
+        content = asyncio.run(generate_image_mcq(number, subject, tone))
         return jsonify(content)
     except Exception as e:
         return jsonify({"error": f"Internal server error: {e}"}), 500
