@@ -1,7 +1,12 @@
 
 gunicorn
 Flask
-openai
+openai==0.28
 python-dotenv
 requests
 Pillow
+Flask
+pymongo
+
+Pillow
+aiohttp
