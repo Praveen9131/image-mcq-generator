@@ -20,10 +20,11 @@ app = Flask(__name__)
 
 # MongoDB setup
 MONGODB_URI = os.getenv('MONGODB_URI')
-client = MongoClient(MONGODB_URI)
-db = client['images']
-collection = db['image_data']
 
+def get_mongo_client():
+    return MongoClient(MONGODB_URI)
+
+# Function to generate an image using DALL-E 3
 def generate_image(prompt: str):
     retry_attempts = 3
     for attempt in range(retry_attempts):
@@ -42,6 +43,7 @@ def generate_image(prompt: str):
             else:
                 raise e
 
+# Async function to download and resize an image
 async def download_resize_image(url: str, size: tuple):
     retry_attempts = 3
     for attempt in range(retry_attempts):
@@ -65,14 +67,16 @@ async def download_resize_image(url: str, size: tuple):
                 raise e
     return None
 
-def store_image_data(original_image_data: str, resized_image_data: str):
+# Function to store image data in MongoDB
+def store_image_data(original_image_data: str, resized_image_data: str, mongo_client):
     document = {
         "original_image": original_image_data,
         "resized_image": resized_image_data
     }
-    result = collection.insert_one(document)
+    result = mongo_client['images']['image_data'].insert_one(document)
     return result.inserted_id
 
+# Function to generate a detailed description of the image using GPT-4 Vision
 def generate_image_description(image_url: str):
     retry_attempts = 3
     for attempt in range(retry_attempts):
@@ -98,6 +102,7 @@ def generate_image_description(image_url: str):
             else:
                 raise e
 
+# Function to generate a question from a detailed description using GPT-4
 def generate_mcq_from_description(description: str, tone: str, subject: str):
     retry_attempts = 3
     for attempt in range(retry_attempts):
@@ -121,29 +126,36 @@ def generate_mcq_from_description(description: str, tone: str, subject: str):
             else:
                 raise e
 
+# Consolidated function to generate image and MCQ
 async def generate_image_mcq(number: int, subject: str, tone: str):
     images_and_questions = []
+    mongo_client = get_mongo_client()
     for i in range(number):
+        # Generate image
         image_prompt = f"An illustration representing the topic: {subject}"
         image_url = generate_image(image_prompt)
         
+        # Resize and encode image
         original_image_data = await download_resize_image(image_url, (1024, 1024))
         resized_image_data = await download_resize_image(image_url, (750, 319))
         
         if original_image_data and resized_image_data:
-            image_id = store_image_data(original_image_data, resized_image_data)
+            # Store image data in MongoDB
+            image_id = store_image_data(original_image_data, resized_image_data, mongo_client)
             
+            # Generate a detailed description of the image
             description = generate_image_description(image_url)
             
+            # Generate MCQ based on the detailed description
             mcq_text = generate_mcq_from_description(description, tone, subject)
             
             images_and_questions.append({
                 'mcq': mcq_text,
                 'question_image_id': str(image_id),
-                'question_image_url': image_url,
-                'resized_image_url': f'/image/{image_id}'
+                'question_image_url': image_url,  # Original URL
+                'resized_image_url': f'/image/{image_id}'  # URL to access the resized image
             })
-
+    mongo_client.close()
     return images_and_questions
 
 @app.route('/generate_content', methods=['GET'])
@@ -169,13 +181,16 @@ def generate_content():
 @app.route('/image/<image_id>', methods=['GET'])
 def get_image(image_id):
     try:
-        document = collection.find_one({"_id": ObjectId(image_id)})
+        mongo_client = get_mongo_client()
+        document = mongo_client['images']['image_data'].find_one({"_id": ObjectId(image_id)})
         if not document:
             return jsonify({"error": "Image not found"}), 404
         image_data = base64.b64decode(document['resized_image'])
         return send_file(BytesIO(image_data), mimetype='image/jpeg')
     except Exception as e:
         return jsonify({"error": f"Image not found: {e}"}), 404
+    finally:
+        mongo_client.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
